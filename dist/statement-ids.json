@@ -1,0 +1,25 @@
+{
+  "projectId": "chatbot",
+  "version": "0.1.0",
+  "repositoryUrl": "",
+  "statements": [
+    {
+      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
+      "line": 16,
+      "message": "AI request received",
+      "stmtId": "892f1ab2c7b3bcca"
+    },
+    {
+      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
+      "line": 36,
+      "message": "AI request completed",
+      "stmtId": "50c7ed9d86534ae8"
+    },
+    {
+      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
+      "line": 49,
+      "message": "AI request failed",
+      "stmtId": "0e1f48d71238a1f4"
+    }
+  ]
+}
