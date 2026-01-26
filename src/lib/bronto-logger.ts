@@ -44,7 +44,7 @@ export class BrontoLogger {
         };
 
         if (stmtId) {
-            logEntry['bronto.statement.id'] = stmtId;
+            logEntry['stmt_id'] = stmtId;
         }
 
         if (span) {

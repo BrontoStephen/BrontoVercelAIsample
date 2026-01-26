@@ -83,20 +83,20 @@ function getLogMessage(arg) {
     return 'unknown';
 }
 function injectStatementId(path, stmtId, t) {
-    // Add id to the arguments
+    // Add stmt_id to the arguments
     const args = path.node.arguments;
 
     const lastArg = args[args.length - 1];
 
     if (lastArg && lastArg.type === 'ObjectExpression') {
-        // Check if id already exists to avoid duplicates
-        const hasId = lastArg.properties.some(p => p.key && (p.key.name === 'id' || p.key.name === 'stmt_id'));
+        // Check if stmt_id already exists to avoid duplicates
+        const hasId = lastArg.properties.some(p => p.key && (p.key.name === 'stmt_id' || p.key.name === 'id'));
         if (!hasId) {
-            lastArg.properties.push(t.objectProperty(t.identifier('id'), t.stringLiteral(stmtId)));
+            lastArg.properties.push(t.objectProperty(t.identifier('stmt_id'), t.stringLiteral(stmtId)));
         }
     } else {
-        // Add new object with id
-        args.push(t.objectExpression([t.objectProperty(t.identifier('id'), t.stringLiteral(stmtId))]));
+        // Add new object with stmt_id
+        args.push(t.objectExpression([t.objectProperty(t.identifier('stmt_id'), t.stringLiteral(stmtId))]));
     }
 }
 function exportStatements(statements) {
