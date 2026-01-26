@@ -1,6 +1,7 @@
 const {
     createHash
 } = require('crypto');
+const nodePath = require('path');
 module.exports = function (babel) {
     const {
         types: t
@@ -30,10 +31,10 @@ module.exports = function (babel) {
 
                     // Store metadata
                     statements.set(stmtId, {
-                        file: filename,
+                        file: nodePath.relative(process.cwd(), filename),
                         line,
                         message,
-                        stmtId
+                        stmt_id: stmtId
                     });
 
                     // Inject stmt_id as attribute
@@ -109,16 +110,15 @@ function injectStatementId(path, stmtId, t) {
 }
 function exportStatements(statements) {
     const fs = require('fs');
-    const path = require('path');
     const output = {
-        projectId: process.env.npm_package_name || 'vercel-ai-demo',
+        project_id: process.env.VERCEL_PROJECT_ID || 'prj_DrzflPlaMjCI7OLH9xSoqIJhB8MZ',
         version: process.env.npm_package_version || '1.0.0',
-        repositoryUrl: process.env.GITHUB_REPOSITORY_URL || '',
+        repo_url: process.env.VERCEL_GIT_REPO_OWNER ? `https://github.com/${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` : 'https://github.com/vercel/ai-chatbot',
         statements: Array.from(statements.values())
     };
-    const outputPath = path.join(process.cwd(), 'dist', 'statement-ids.json');
+    const outputPath = nodePath.join(process.cwd(), 'dist', 'statement-ids.json');
     try {
-        fs.mkdirSync(path.dirname(outputPath), {
+        fs.mkdirSync(nodePath.dirname(outputPath), {
             recursive: true
         });
         fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));

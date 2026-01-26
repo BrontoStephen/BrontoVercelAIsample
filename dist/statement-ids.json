@@ -1,25 +1,43 @@
 {
-  "projectId": "chatbot",
+  "project_id": "prj_DrzflPlaMjCI7OLH9xSoqIJhB8MZ",
   "version": "0.1.0",
-  "repositoryUrl": "",
+  "repo_url": "https://github.com/vercel/ai-chatbot",
   "statements": [
     {
-      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
-      "line": 16,
+      "file": "src/app/api/chat/route.ts",
+      "line": 8,
+      "message": "AI Gateway initialized",
+      "stmt_id": "f50fc3f8eaa6a8a6"
+    },
+    {
+      "file": "src/app/api/chat/route.ts",
+      "line": 25,
       "message": "AI request received",
-      "stmtId": "892f1ab2c7b3bcca"
+      "stmt_id": "3393450dd05a8e33"
     },
     {
-      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
-      "line": 36,
+      "file": "src/app/api/chat/route.ts",
+      "line": 63,
       "message": "AI request completed",
-      "stmtId": "50c7ed9d86534ae8"
+      "stmt_id": "1609fdce9fa61bcf"
     },
     {
-      "file": "/Users/stephencrowley/Code/Antigravity/chatbot/src/app/api/chat/route.ts",
-      "line": 49,
+      "file": "src/app/api/chat/route.ts",
+      "line": 75,
+      "message": "AI request failed (stream)",
+      "stmt_id": "211c47e378f129e0"
+    },
+    {
+      "file": "src/app/api/chat/route.ts",
+      "line": 89,
       "message": "AI request failed",
-      "stmtId": "0e1f48d71238a1f4"
+      "stmt_id": "a6b419d7d10bc123"
+    },
+    {
+      "file": "src/lib/bronto-logger.ts",
+      "line": 78,
+      "message": "unknown",
+      "stmt_id": "4e97f3e2839e541e"
     }
   ]
 }

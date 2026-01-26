@@ -6,45 +6,35 @@ interface LogOptions {
     level: 'info' | 'error' | 'warn' | 'debug';
     message: string;
     attributes?: Record<string, any>;
-    stmt_id?: string; // Injected by Babel plugin
+    stmt_id?: string;
 }
-
-// Helper to look for stmt_id in the last argument if it was injected as a separate object
-// function extractStmtId(args: any[]): string | undefined {
-//     const lastArg = args[args.length - 1];
-//     if (lastArg && typeof lastArg === 'object' && 'stmt_id' in lastArg) {
-//         return lastArg.stmt_id;
-//     }
-//     return undefined;
-// }
-
 
 export class BrontoLogger {
 
     static log(level: LogOptions['level'], message: string, ...args: any[]) {
-        // The Babel plugin injects stmt_id into the last argument if it's an object, 
-        // or appends a new object { stmt_id: ... }
-
         let attributes: Record<string, any> = {};
         let stmtId: string | undefined;
 
-        // Check if the last arg has stmt_id
-        const potentiallyInjected = args[args.length - 1];
-        if (potentiallyInjected && typeof potentiallyInjected === 'object' && potentiallyInjected.stmt_id) {
-            stmtId = potentiallyInjected.stmt_id;
-            // If it was just the injected object (only has stmt_id), we might not want to treat it as user attributes
-            // But if the user passed attributes AND it got injected there, we use it.
-            attributes = { ...potentiallyInjected };
-            delete attributes.stmt_id; // Remove from attributes effectively, or keep it. Let's keep it as a distinct field.
-        } else if (args.length > 0 && typeof args[0] === 'object') {
-            // Sometimes users might pass (message, attributes)
-            attributes = args[0];
-        }
+        // The Babel plugin might inject stmt_id by merging it into the last object arg,
+        // or by appending a new object { stmt_id: ... } as the last arg.
+        const lastArg = args.length > 0 ? args[args.length - 1] : undefined;
 
+        if (lastArg && typeof lastArg === 'object' && lastArg.stmt_id) {
+            stmtId = lastArg.stmt_id;
+            attributes = { ...lastArg };
+            delete attributes.stmt_id;
+
+            // If the user provided attributes as a separate previous argument, merge them
+            if (args.length > 1 && typeof args[0] === 'object') {
+                attributes = { ...args[0], ...attributes };
+            }
+        } else if (args.length > 0 && typeof args[0] === 'object') {
+            attributes = { ...args[0] };
+        }
 
         const span = trace.getActiveSpan();
 
-        // Construct log entry
+        // Construct structured log entry for Vercel Drain
         const logEntry: any = {
             timestamp: new Date().toISOString(),
             level,
@@ -57,20 +47,13 @@ export class BrontoLogger {
         }
 
         if (span) {
-            logEntry['trace.id'] = span.spanContext().traceId;
-            logEntry['span.id'] = span.spanContext().spanId;
+            const context = span.spanContext();
+            logEntry['trace.id'] = context.traceId;
+            logEntry['span.id'] = context.spanId;
         }
 
-        // In a real app, you might want to send this to a log collector.
-        // For now, we print to console. 
-        // We should be careful not to trigger the babel plugin recursively if we use console.log here.
-        // The babel plugin checks for 'console.log' and 'BrontoLogger.*'.
-        // To avoid infinite recursion or double injection if we used console.log inside BrontoLogger which is also instrumented:
-        // The plugin targets 'BrontoLogger.info' calls in USER code. 
-        // Inside this file, we are defining BrontoLogger.
-
-        // Use proper console method
-        const consoleMethod = console[level] || console.log;
+        // Standard console output is captured by Vercel Log Drains
+        const consoleMethod = (console as any)[level] || console.log;
         consoleMethod(JSON.stringify(logEntry));
     }
 

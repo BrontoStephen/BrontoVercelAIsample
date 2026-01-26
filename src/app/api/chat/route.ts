@@ -1,10 +1,13 @@
-import { openai } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { streamText, gateway, convertToModelMessages } from 'ai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logWithStatement } from '@/lib/bronto-logger';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
+
+logWithStatement('AI Gateway initialized', {
+  mode: 'native-gateway'
+});
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
@@ -14,20 +17,20 @@ export async function POST(req: Request) {
   return await tracer.startActiveSpan('ai.chat.completion', async (span) => {
     try {
       span.setAttributes({
-        'ai.prompt.messages': JSON.stringify(messages), // Stringify for attribute safety if complex object
-        'ai.model': 'gpt-4-turbo',
+        'ai.prompt.messages': JSON.stringify(messages),
+        'ai.model': 'openai/gpt-4-turbo',
         'ai.operation': 'chat.completion',
       });
 
       logWithStatement('AI request received', {
         'ai.prompt.messages': messages,
-        'ai.model': 'gpt-4-turbo',
+        'ai.model': 'openai/gpt-4-turbo',
         'ai.operation': 'chat.completion',
       });
 
       const result = await streamText({
-        model: openai('gpt-4-turbo'),
-        messages,
+        model: gateway('openai/gpt-4-turbo'),
+        messages: await convertToModelMessages(messages),
         onFinish: async ({ usage }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const u = usage as any;
@@ -58,10 +61,12 @@ export async function POST(req: Request) {
           span.end();
 
           logWithStatement('AI request completed', {
-            'ai.usage.total_tokens': totalTokens,
-            'ai.cost.total': totalCost,
-            'ai.cost.prompt': promptCost,
-            'ai.cost.completion': completionCost,
+            aiUsagePromptTokens: promptTokens,
+            aiUsageCompletionTokens: completionTokens,
+            aiUsageTotalTokens: totalTokens,
+            aiCostPrompt: promptCost,
+            aiCostCompletion: completionCost,
+            aiCostTotal: totalCost,
           });
         },
         onError: async ({ error }) => {
@@ -76,7 +81,7 @@ export async function POST(req: Request) {
       });
 
 
-      return result.toTextStreamResponse();
+      return result.toUIMessageStreamResponse();
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {

@@ -4,11 +4,11 @@ import * as path from 'path';
 // Using fetch API (available in Node 18+)
 
 interface StatementMapping {
-    projectId: string;
+    project_id: string;
     version: string;
-    repositoryUrl: string;
+    repo_url: string;
     statements: Array<{
-        stmtId: string;
+        stmt_id: string;
         file: string;
         line: number;
         message: string;

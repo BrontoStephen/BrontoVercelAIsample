@@ -1,10 +1,13 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect } from 'react';
 
 export default function Chat() {
-    const { messages, sendMessage, status } = useChat();
+    // In this specific SDK version, useChat returns different helpers than standard V3
+    const { messages, sendMessage, status } = useChat() as any;
     const [input, setInput] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -20,17 +23,18 @@ export default function Chat() {
         setInput(e.target.value);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!input.trim()) return;
-        // sendMessage({ role: 'user', content: input }); // Removed invalid call
-        // Actually, based on types, { text: input } is safer. 
-        // But let's try strict types from previous view.
-        // sendMessage type allows: { text: string } OR CreateUIMessage
-        // CreateUIMessage likely has content?
-        // Let's use { text: input } to be safe as per type definition I saw.
-        sendMessage({ text: input });
+        if (!input.trim() || status === 'submitted') return;
+
+        const val = input;
         setInput('');
+
+        try {
+            await sendMessage({ text: val });
+        } catch (error) {
+            console.error('Failed to send message:', error);
+        }
     };
 
     return (
@@ -41,7 +45,7 @@ export default function Chat() {
                         Start a conversation...
                     </div>
                 )}
-                {messages.map(m => (
+                {messages.map((m: any) => (
                     <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                         <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${m.role === 'user'
                             ? 'bg-blue-600 text-white'
@@ -51,10 +55,7 @@ export default function Chat() {
                                 {m.role === 'user' ? 'You' : 'AI'}
                             </div>
                             <div className="whitespace-pre-wrap">
-                                {m.parts ? m.parts.map((part, idx) => {
-                                    if (part.type === 'text') return <span key={idx}>{part.text}</span>;
-                                    return null;
-                                }) : '...'}
+                                {m.content || (m.parts && m.parts.map((p: any) => p.type === 'text' ? p.text : '').join('')) || (status === 'streaming' && m.role !== 'user' ? '...' : '')}
                             </div>
                         </div>
                     </div>
@@ -69,8 +70,7 @@ export default function Chat() {
                         value={input}
                         placeholder="Type your message..."
                         onChange={handleInputChange}
-                        disabled={status === 'submitted' || status === 'streaming'} // Optional: disable while sending? Usually chat allows queueing or at least typing. I'll leave enabled but maybe show loading state.
-                    // keeping enabled generally feels faster.
+                        disabled={status === 'submitted' || status === 'streaming'}
                     />
                     <button
                         type="submit"
