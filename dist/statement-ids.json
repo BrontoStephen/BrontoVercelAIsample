@@ -1,43 +1,43 @@
 {
   "project_id": "prj_DrzflPlaMjCI7OLH9xSoqIJhB8MZ",
   "version": "0.1.0",
-  "repo_url": "https://github.com/vercel/ai-chatbot",
+  "repo_url": "https://github.com/BrontoStephen/BrontoVercelAIsample",
   "statements": [
     {
       "file": "src/app/api/chat/route.ts",
       "line": 8,
       "message": "AI Gateway initialized",
-      "stmt_id": "f50fc3f8eaa6a8a6"
+      "id": "f50fc3f8eaa6a8a6"
     },
     {
       "file": "src/app/api/chat/route.ts",
       "line": 25,
       "message": "AI request received",
-      "stmt_id": "3393450dd05a8e33"
+      "id": "3393450dd05a8e33"
     },
     {
       "file": "src/app/api/chat/route.ts",
       "line": 63,
       "message": "AI request completed",
-      "stmt_id": "1609fdce9fa61bcf"
+      "id": "1609fdce9fa61bcf"
     },
     {
       "file": "src/app/api/chat/route.ts",
-      "line": 75,
+      "line": 77,
       "message": "AI request failed (stream)",
-      "stmt_id": "211c47e378f129e0"
+      "id": "55eb0572f8f81747"
     },
     {
       "file": "src/app/api/chat/route.ts",
-      "line": 89,
+      "line": 91,
       "message": "AI request failed",
-      "stmt_id": "a6b419d7d10bc123"
+      "id": "d683cd3682aa8f64"
     },
     {
       "file": "src/lib/bronto-logger.ts",
-      "line": 78,
+      "line": 79,
       "message": "unknown",
-      "stmt_id": "4e97f3e2839e541e"
+      "id": "28308d894ceb9366"
     }
   ]
 }

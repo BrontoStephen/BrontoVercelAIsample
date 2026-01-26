@@ -8,12 +8,62 @@ interface StatementMapping {
     version: string;
     repo_url: string;
     statements: Array<{
-        stmt_id: string;
+        id: string; // Changed from stmt_id to id
         file: string;
         line: number;
         message: string;
         level?: string;
     }>;
+}
+
+const region = process.env.BRONTO_REGION || 'EU';
+const apiKey = process.env.BRONTO_API_KEY;
+
+const ingestionUrl = region === 'EU'
+    ? 'https://ingestion.eu.bronto.io/v1/logs'
+    : 'https://ingestion.us.bronto.io/v1/logs';
+
+const apiBaseUrl = region === 'EU'
+    ? 'https://api.eu.bronto.io'
+    : 'https://api.us.bronto.io';
+
+async function sendLogToBronto(level: string, message: string, attributes: Record<string, any> = {}) {
+    if (!apiKey) return;
+
+    const logRecord = {
+        resourceLogs: [{
+            resource: {
+                attributes: [
+                    { key: 'service.name', value: { stringValue: 'bronto-upload-tool' } },
+                    { key: 'deployment.environment', value: { stringValue: 'build' } }
+                ]
+            },
+            scopeLogs: [{
+                logRecords: [{
+                    timeUnixNano: String(Date.now() * 1000000),
+                    severityText: level.toUpperCase(),
+                    body: { stringValue: message },
+                    attributes: Object.entries(attributes).map(([key, value]) => ({
+                        key,
+                        value: typeof value === 'number' ? { doubleValue: value } : { stringValue: String(value) }
+                    }))
+                }]
+            }]
+        }]
+    };
+
+    try {
+        await fetch(ingestionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-BRONTO-API-KEY': apiKey
+            },
+            body: JSON.stringify(logRecord)
+        });
+    } catch (e) {
+        console.warn('⚠️ Failed to send log to Bronto ingestion:', e);
+    }
 }
 
 async function uploadToBronto() {
@@ -33,22 +83,31 @@ async function uploadToBronto() {
         process.exit(1);
     }
 
-    const region = process.env.BRONTO_REGION || 'EU';
-    const apiKey = process.env.BRONTO_API_KEY;
-
     if (!apiKey) {
         console.error('❌ BRONTO_API_KEY environment variable is missing.');
         process.exit(1);
     }
 
-    const baseUrl = region === 'EU'
-        ? 'https://api.eu.bronto.io'
-        : 'https://api.us.bronto.io';
+    const uploadUrl = `${apiBaseUrl}/statements`;
 
-    console.log(`Uploading ${statements.statements.length} statements to ${baseUrl}...`);
+    await sendLogToBronto('info', 'Starting statement upload', {
+        statementCount: statements.statements.length,
+        targetUrl: uploadUrl,
+        projectId: statements.project_id,
+        version: statements.version,
+        repoUrl: statements.repo_url
+    });
+
+    console.log(`Uploading ${statements.statements.length} statements for project ${statements.project_id} to ${uploadUrl}...`);
+
+    // Log individual statement IDs being sent
+    const stmtIds = statements.statements.map(s => s.id);
+    await sendLogToBronto('debug', 'Statement IDs ready for upload', {
+        stmt_id_list: stmtIds.join(',')
+    });
 
     try {
-        const response = await fetch(`${baseUrl}/statements`, {
+        const response = await fetch(uploadUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -58,7 +117,12 @@ async function uploadToBronto() {
         });
 
         if (!response.ok) {
-            throw new Error(`Failed to upload statements: ${response.status} ${response.statusText} - ${await response.text()}`);
+            const errorText = await response.text();
+            await sendLogToBronto('error', 'Statement upload failed', {
+                status: response.status,
+                error: errorText
+            });
+            throw new Error(`Failed to upload statements: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
         const result = await response.json();
@@ -67,8 +131,17 @@ async function uploadToBronto() {
         console.log(`   Modified: ${result.modified ?? 0} statements`);
         console.log(`   Deleted:  ${result.deleted ?? 0} statements`);
 
+        await sendLogToBronto('info', 'Statement upload completed successfully', {
+            createdCount: result.created ?? 0,
+            modifiedCount: result.modified ?? 0,
+            deletedCount: result.deleted ?? 0
+        });
+
     } catch (error: any) {
         console.error(`❌ Error uploading statements: ${error.message}`);
+        await sendLogToBronto('error', 'Execution error during statement upload', {
+            exception: error.message
+        });
         process.exit(1);
     }
 }

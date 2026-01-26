@@ -15,14 +15,15 @@ export class BrontoLogger {
         let attributes: Record<string, any> = {};
         let stmtId: string | undefined;
 
-        // The Babel plugin might inject stmt_id by merging it into the last object arg,
-        // or by appending a new object { stmt_id: ... } as the last arg.
+        // The Babel plugin might inject stmt_id or id by merging it into the last object arg,
+        // or by appending a new object { id: ... } as the last arg.
         const lastArg = args.length > 0 ? args[args.length - 1] : undefined;
 
-        if (lastArg && typeof lastArg === 'object' && lastArg.stmt_id) {
-            stmtId = lastArg.stmt_id;
+        if (lastArg && typeof lastArg === 'object' && (lastArg.stmt_id || lastArg.id)) {
+            stmtId = lastArg.stmt_id || lastArg.id;
             attributes = { ...lastArg };
             delete attributes.stmt_id;
+            delete attributes.id;
 
             // If the user provided attributes as a separate previous argument, merge them
             if (args.length > 1 && typeof args[0] === 'object') {

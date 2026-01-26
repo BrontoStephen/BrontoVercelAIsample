@@ -34,10 +34,10 @@ module.exports = function (babel) {
                         file: nodePath.relative(process.cwd(), filename),
                         line,
                         message,
-                        stmt_id: stmtId
+                        id: stmtId
                     });
 
-                    // Inject stmt_id as attribute
+                    // Inject id as attribute
                     injectStatementId(path, stmtId, t);
                 }
             }
@@ -83,29 +83,20 @@ function getLogMessage(arg) {
     return 'unknown';
 }
 function injectStatementId(path, stmtId, t) {
-    // Add stmt_id to the arguments
+    // Add id to the arguments
     const args = path.node.arguments;
 
-    // We want to append { stmt_id: "..." } to the arguments
-    // If the last argument is already an object, we can try to merge it, or just append a new object.
-    // For console.log, appending is fine.
-    // For structured logging (like BrontoLogger.info(msg, attrs)), we might want to merge into attrs if it exists.
-
-    // Strategy: Always append a new object for console.log
-    // For BrontoLogger, check if the last arg is an object.
-
-    // Implementation taken from plan, refined for robustness:
     const lastArg = args[args.length - 1];
 
     if (lastArg && lastArg.type === 'ObjectExpression') {
-        // Check if stmt_id already exists to avoid duplicates if pass runs twice
-        const hasStmtId = lastArg.properties.some(p => p.key && p.key.name === 'stmt_id');
-        if (!hasStmtId) {
-            lastArg.properties.push(t.objectProperty(t.identifier('stmt_id'), t.stringLiteral(stmtId)));
+        // Check if id already exists to avoid duplicates
+        const hasId = lastArg.properties.some(p => p.key && (p.key.name === 'id' || p.key.name === 'stmt_id'));
+        if (!hasId) {
+            lastArg.properties.push(t.objectProperty(t.identifier('id'), t.stringLiteral(stmtId)));
         }
     } else {
-        // Add new object with stmt_id
-        args.push(t.objectExpression([t.objectProperty(t.identifier('stmt_id'), t.stringLiteral(stmtId))]));
+        // Add new object with id
+        args.push(t.objectExpression([t.objectProperty(t.identifier('id'), t.stringLiteral(stmtId))]));
     }
 }
 function exportStatements(statements) {
@@ -113,7 +104,7 @@ function exportStatements(statements) {
     const output = {
         project_id: process.env.VERCEL_PROJECT_ID || 'prj_DrzflPlaMjCI7OLH9xSoqIJhB8MZ',
         version: process.env.npm_package_version || '1.0.0',
-        repo_url: process.env.VERCEL_GIT_REPO_OWNER ? `https://github.com/${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` : 'https://github.com/vercel/ai-chatbot',
+        repo_url: 'https://github.com/BrontoStephen/BrontoVercelAIsample',
         statements: Array.from(statements.values())
     };
     const outputPath = nodePath.join(process.cwd(), 'dist', 'statement-ids.json');
