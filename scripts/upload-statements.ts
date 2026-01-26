@@ -89,38 +89,35 @@ async function uploadToBronto() {
     }
 
     const uploadUrl = `${apiBaseUrl}/statements`;
+    const payload = JSON.stringify(statements);
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-BRONTO-API-KEY': apiKey
+    };
 
-    await sendLogToBronto('info', 'Starting statement upload', {
-        statementCount: statements.statements.length,
+    // Log the RAW message and headers as requested
+    await sendLogToBronto('debug', 'Raw API request details', {
         targetUrl: uploadUrl,
-        projectId: statements.project_id,
-        version: statements.version,
-        repoUrl: statements.repo_url
+        method: 'POST',
+        headers: JSON.stringify(headers),
+        rawPayload: payload
     });
 
     console.log(`Uploading ${statements.statements.length} statements for project ${statements.project_id} to ${uploadUrl}...`);
 
-    // Log individual statement IDs being sent
-    const stmtIds = statements.statements.map(s => s.id);
-    await sendLogToBronto('debug', 'Statement IDs ready for upload', {
-        stmt_id_list: stmtIds.join(',')
-    });
-
     try {
         const response = await fetch(uploadUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-BRONTO-API-KEY': apiKey
-            },
-            body: JSON.stringify(statements)
+            headers: headers,
+            body: payload
         });
 
         if (!response.ok) {
             const errorText = await response.text();
             await sendLogToBronto('error', 'Statement upload failed', {
                 status: response.status,
-                error: errorText
+                error: errorText,
+                targetUrl: uploadUrl
             });
             throw new Error(`Failed to upload statements: ${response.status} ${response.statusText} - ${errorText}`);
         }
@@ -134,13 +131,15 @@ async function uploadToBronto() {
         await sendLogToBronto('info', 'Statement upload completed successfully', {
             createdCount: result.created ?? 0,
             modifiedCount: result.modified ?? 0,
-            deletedCount: result.deleted ?? 0
+            deletedCount: result.deleted ?? 0,
+            targetUrl: uploadUrl
         });
 
     } catch (error: any) {
         console.error(`❌ Error uploading statements: ${error.message}`);
         await sendLogToBronto('error', 'Execution error during statement upload', {
-            exception: error.message
+            exception: error.message,
+            targetUrl: uploadUrl
         });
         process.exit(1);
     }
