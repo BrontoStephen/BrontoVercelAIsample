@@ -11,6 +11,10 @@ module.exports = function (babel) {
         name: "bronto-statement-id",
         visitor: {
             CallExpression(path, state) {
+                // Failsafe: only run in Vercel environment
+                if (process.env.VERCEL !== '1') {
+                    return;
+                }
                 const callee = path.node.callee;
 
                 // Detect logging calls: console.log, logWithStatement, etc.
