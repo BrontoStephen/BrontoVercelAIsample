@@ -41,6 +41,12 @@ function structuredLog(level: string, message: string, attributes: Record<string
 async function uploadToBronto() {
     const statementsPath = path.join(process.cwd(), 'dist', 'statement-ids.json');
 
+    // Strict Guard: Only run in Vercel environment
+    if (process.env.VERCEL !== '1') {
+        console.log('🛡️  Bronto: Local environment or non-Vercel build. Skipping statement upload.');
+        process.exit(0);
+    }
+
     if (!fs.existsSync(statementsPath)) {
         console.error(`❌ Statement file not found at ${statementsPath}. Run 'npm run export-statements' first.`);
         process.exit(1);
