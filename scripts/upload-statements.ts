@@ -39,7 +39,7 @@ function structuredLog(level: string, message: string, attributes: Record<string
 }
 
 async function uploadToBronto() {
-    const statementsPath = path.join(process.cwd(), 'dist', 'statement-ids.json');
+    const statementsPath = path.join(process.cwd(), 'dist', 'statements.jsonl');
 
     // Strict Guard: Only run in Vercel environment
     if (process.env.VERCEL !== '1') {
@@ -48,18 +48,47 @@ async function uploadToBronto() {
     }
 
     if (!fs.existsSync(statementsPath)) {
-        console.error(`❌ Statement file not found at ${statementsPath}. Run 'npm run export-statements' first.`);
+        console.error(`❌ Statement log file not found at ${statementsPath}. Run 'npm run export-statements' first.`);
         process.exit(1);
     }
 
     const fileContent = fs.readFileSync(statementsPath, 'utf-8');
-    let statements: StatementMapping;
-    try {
-        statements = JSON.parse(fileContent);
-    } catch (e) {
-        console.error('❌ Failed to parse statements file JSON');
+    const lines = fileContent.split('\n').filter(line => line.trim().length > 0);
+
+    // Deduplicate statements by ID
+    const uniqueStatements = new Map<string, any>();
+    let projectInfo: any = null;
+
+    lines.forEach(line => {
+        try {
+            const entry = JSON.parse(line);
+            if (!projectInfo) {
+                // Capture project info from the first valid entry
+                projectInfo = {
+                    project_id: entry.project_id,
+                    version: entry.version,
+                    repo_url: entry.repo_url
+                };
+            }
+            if (entry.statement && entry.statement.id) {
+                uniqueStatements.set(entry.statement.id, entry.statement);
+            }
+        } catch (e) {
+            console.warn('Skipping invalid JSON line:', line);
+        }
+    });
+
+    if (!projectInfo) {
+        console.error('❌ No valid statement entries found');
         process.exit(1);
     }
+
+    const statements: StatementMapping = {
+        project_id: projectInfo.project_id,
+        version: projectInfo.version,
+        repo_url: projectInfo.repo_url,
+        statements: Array.from(uniqueStatements.values()) as any
+    };
 
     if (!apiKey) {
         structuredLog('error', 'BRONTO_API_KEY environment variable is missing.');
