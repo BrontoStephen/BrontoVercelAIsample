@@ -20,8 +20,14 @@ module.exports = function (babel) {
                 // Detect logging calls: console.log, logWithStatement, etc.
                 if (isLoggingCall(callee)) {
                     const filename = state.file.opts.filename;
+
+                    // Exclude the logger implementation itself to avoid attribution to the wrapper
+                    if (!filename || filename.endsWith('bronto-logger.ts')) {
+                        return;
+                    }
+
                     const line = path.node.loc?.start.line;
-                    if (!filename || !line) return;
+                    if (!line) return;
 
                     // Generate statement ID
                     const stmtId = generateStatementId(filename, line);
