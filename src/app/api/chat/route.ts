@@ -34,8 +34,8 @@ export async function POST(req: Request) {
         onFinish: async ({ usage }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const u = usage as any;
-          const promptTokens = u.promptTokens || 0;
-          const completionTokens = u.completionTokens || 0;
+          const promptTokens = u.inputTokens || 0;
+          const completionTokens = u.outputTokens || 0;
           const totalTokens = u.totalTokens || 0;
 
           const promptCostRate = 0.03; // $0.03 per 1k tokens
