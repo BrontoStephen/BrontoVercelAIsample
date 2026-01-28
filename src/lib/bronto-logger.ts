@@ -1,4 +1,4 @@
-import { trace } from '@opentelemetry/api';
+
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -33,7 +33,7 @@ export class BrontoLogger {
             attributes = { ...args[0] };
         }
 
-        const span = trace.getActiveSpan();
+
 
         // Construct structured log entry for Vercel Drain
         // Metadata like timestamp, level, trace_id are handled by Vercel's outer envelope

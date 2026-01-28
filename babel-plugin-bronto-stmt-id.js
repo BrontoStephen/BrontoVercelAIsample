@@ -111,19 +111,39 @@ function injectStatementId(path, stmtId, t) {
 }
 function exportStatements(statements) {
     const fs = require('fs');
+    if (statements.size === 0) return;
+
+    const outputPath = nodePath.join(process.cwd(), 'dist', 'statement-ids.json');
+    let existingStatements = [];
+
+    try {
+        if (fs.existsSync(outputPath)) {
+            const data = fs.readFileSync(outputPath, 'utf8');
+            const json = JSON.parse(data);
+            existingStatements = json.statements || [];
+        }
+    } catch (e) {
+        // Ignore read errors, start fresh
+    }
+
+    // Merge existing and new statements
+    const mergedMap = new Map();
+    existingStatements.forEach(s => mergedMap.set(s.id, s));
+    statements.forEach(s => mergedMap.set(s.id, s));
+
     const output = {
         project_id: process.env.VERCEL_PROJECT_ID || 'prj_DrzflPlaMjCI7OLH9xSoqIJhB8MZ',
         version: process.env.npm_package_version || '1.0.0',
         repo_url: 'https://github.com/BrontoStephen/BrontoVercelAIsample',
-        statements: Array.from(statements.values())
+        statements: Array.from(mergedMap.values())
     };
-    const outputPath = nodePath.join(process.cwd(), 'dist', 'statement-ids.json');
+
     try {
         fs.mkdirSync(nodePath.dirname(outputPath), {
             recursive: true
         });
         fs.writeFileSync(outputPath, JSON.stringify(output, null, 2));
-        console.log(`✅ Exported ${statements.size} statement IDs to ${outputPath}`);
+        // console.log(`✅ Appended ${statements.size} statement IDs to ${outputPath}`);
     } catch (e) {
         console.error('Failed to export statements', e);
     }
