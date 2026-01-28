@@ -40,7 +40,7 @@ export class BrontoLogger {
             timestamp: new Date().toISOString(),
             level,
             message,
-            ...attributes
+            data: attributes
         };
 
         if (stmtId) {
