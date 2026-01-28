@@ -36,21 +36,14 @@ export class BrontoLogger {
         const span = trace.getActiveSpan();
 
         // Construct structured log entry for Vercel Drain
+        // Metadata like timestamp, level, trace_id are handled by Vercel's outer envelope
         const logEntry: any = {
-            timestamp: new Date().toISOString(),
-            level,
             message,
             data: attributes
         };
 
         if (stmtId) {
             logEntry['stmt_id'] = stmtId;
-        }
-
-        if (span) {
-            const context = span.spanContext();
-            logEntry['trace.id'] = context.traceId;
-            logEntry['span.id'] = context.spanId;
         }
 
         // Standard console output is captured by Vercel Log Drains
