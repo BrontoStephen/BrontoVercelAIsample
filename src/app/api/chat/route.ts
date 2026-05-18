@@ -3,8 +3,10 @@ import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logWithStatement } from '@/lib/bronto-logger';
 import { EvalHeaderSpanProcessor } from '@/instrumentation';
 
-// Allow streaming responses up to 30 seconds
-export const maxDuration = 30;
+// Allow streaming responses up to 60 seconds (Vercel Pro plan).
+// gpt-4-turbo full answers to explanation prompts routinely exceed 30s,
+// which truncates the Lambda before onFinish/span.end() fire.
+export const maxDuration = 60;
 
 logWithStatement('AI Gateway initialized', {
   mode: 'native-gateway'
