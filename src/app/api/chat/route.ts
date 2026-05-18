@@ -1,6 +1,7 @@
 import { streamText, gateway, convertToModelMessages } from 'ai';
 import { trace, SpanStatusCode } from '@opentelemetry/api';
 import { logWithStatement } from '@/lib/bronto-logger';
+import { EvalHeaderSpanProcessor } from '@/instrumentation';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -12,10 +13,24 @@ logWithStatement('AI Gateway initialized', {
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
+  const evalRunId = req.headers.get('x-eval-run-id') ?? undefined;
+  const evalCaseId = req.headers.get('x-eval-case-id') ?? undefined;
+
   const tracer = trace.getTracer('vercel-ai-sdk');
 
   return await tracer.startActiveSpan('ai.chat.completion', async (span) => {
     try {
+      if (evalRunId || evalCaseId) {
+        const evalAttrs: Record<string, string> = {};
+        if (evalRunId) evalAttrs['$x-eval-run-id'] = evalRunId;
+        if (evalCaseId) evalAttrs['$x-eval-case-id'] = evalCaseId;
+        span.setAttributes(evalAttrs);
+        EvalHeaderSpanProcessor.setEvalAttributes(
+          span.spanContext().traceId,
+          evalAttrs,
+        );
+      }
+
       span.setAttributes({
         'ai.prompt.messages': JSON.stringify(messages),
         'ai.model': 'openai/gpt-4-turbo',
@@ -26,12 +41,14 @@ export async function POST(req: Request) {
         'ai.prompt.messages': messages,
         'ai.model': 'openai/gpt-4-turbo',
         'ai.operation': 'chat.completion',
+        ...(evalRunId ? { eval_run_id: evalRunId } : {}),
+        ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
       });
 
       const result = await streamText({
         model: gateway('openai/gpt-4-turbo'),
         messages: await convertToModelMessages(messages),
-        onFinish: async ({ usage }) => {
+        onFinish: async ({ usage, text }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const u = usage as any;
           const promptTokens = u.inputTokens || 0;
@@ -67,6 +84,9 @@ export async function POST(req: Request) {
             aiCostPrompt: promptCost,
             aiCostCompletion: completionCost,
             aiCostTotal: totalCost,
+            ...(evalRunId ? { eval_run_id: evalRunId } : {}),
+            ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
+            ...(evalRunId || evalCaseId ? { 'ai.output.text': text } : {}),
           });
         },
         onError: async ({ error }) => {
