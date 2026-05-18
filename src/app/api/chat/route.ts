@@ -48,6 +48,16 @@ export async function POST(req: Request) {
       const result = await streamText({
         model: gateway('openai/gpt-4-turbo'),
         messages: await convertToModelMessages(messages),
+        experimental_telemetry: {
+          isEnabled: true,
+          recordInputs: true,
+          recordOutputs: true,
+          functionId: 'chat',
+          metadata: {
+            ...(evalRunId ? { eval_run_id: evalRunId } : {}),
+            ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
+          },
+        },
         onFinish: async ({ usage, text }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const u = usage as any;
