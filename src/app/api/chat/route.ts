@@ -12,6 +12,33 @@ logWithStatement('AI Gateway initialized', {
   mode: 'native-gateway'
 });
 
+// Extract human-readable text from a UIMessage's parts/content. Used to shape
+// OTel GenAI message events that carry the actual prompt/response content.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractMessageText(m: any): string {
+  if (!m) return '';
+  if (typeof m.content === 'string') return m.content;
+  const parts = Array.isArray(m.parts) ? m.parts : Array.isArray(m.content) ? m.content : [];
+  return parts
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .filter((p: any) => p && (p.type === 'text' || typeof p.text === 'string'))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((p: any) => p.text ?? p.content ?? '')
+    .join('');
+}
+
+// Reshape Vercel UI messages into the structure prescribed by OTel GenAI
+// content conventions: { role, content: [{ type, content }] }.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toGenAiMessages(uiMessages: any[]): Array<{ role: string; content: Array<{ type: string; content: string }> }> {
+  if (!Array.isArray(uiMessages)) return [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return uiMessages.map((m: any) => ({
+    role: String(m?.role ?? 'user'),
+    content: [{ type: 'text', content: extractMessageText(m) }],
+  }));
+}
+
 export async function POST(req: Request) {
   const { messages } = await req.json();
 
@@ -60,7 +87,7 @@ export async function POST(req: Request) {
             ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
           },
         },
-        onFinish: async ({ usage, text }) => {
+        onFinish: async ({ usage, text, finishReason, response }) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const u = usage as any;
           const promptTokens = u.inputTokens || 0;
@@ -89,6 +116,14 @@ export async function POST(req: Request) {
           span.setStatus({ code: SpanStatusCode.OK });
           span.end();
 
+          const evalTags = {
+            ...(evalRunId ? { eval_run_id: evalRunId } : {}),
+            ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
+          };
+
+          // Flavor 1: gen_ai.* fields inlined onto the existing completion log.
+          // One log per request; once Bronto's log parser surfaces nested JSON
+          // keys, these become typed attributes ($gen_ai.usage.input_tokens, ...).
           logWithStatement('AI request completed', {
             aiUsagePromptTokens: promptTokens,
             aiUsageCompletionTokens: completionTokens,
@@ -96,9 +131,48 @@ export async function POST(req: Request) {
             aiCostPrompt: promptCost,
             aiCostCompletion: completionCost,
             aiCostTotal: totalCost,
-            ...(evalRunId ? { eval_run_id: evalRunId } : {}),
-            ...(evalCaseId ? { eval_case_id: evalCaseId } : {}),
+            ...evalTags,
             ...(evalRunId || evalCaseId ? { 'ai.output.text': text } : {}),
+            // OTel GenAI semantic-convention metadata
+            'gen_ai.system': 'gateway',
+            'gen_ai.operation.name': 'chat',
+            'gen_ai.request.model': 'openai/gpt-4-turbo',
+            'gen_ai.response.model': response?.modelId,
+            'gen_ai.response.id': response?.id,
+            'gen_ai.response.finish_reasons': [finishReason],
+            'gen_ai.usage.input_tokens': promptTokens,
+            'gen_ai.usage.output_tokens': completionTokens,
+            // Content as flat fields (per OTel GenAI content-on-span fallback)
+            'gen_ai.input.messages': JSON.stringify(toGenAiMessages(messages)),
+            'gen_ai.output.messages': JSON.stringify([{
+              role: 'assistant',
+              content: [{ type: 'text', content: text }],
+              finish_reason: finishReason,
+            }]),
+          });
+
+          // Flavor 2: separate OTel GenAI message events — one per user/system
+          // input message plus one for the assistant's response. Closer to the
+          // OTel Events API shape so per-message filtering/sampling stays
+          // possible if Bronto ever splits content from metadata.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const inputMessages: any[] = Array.isArray(messages) ? messages : [];
+          for (const m of inputMessages) {
+            const role = String(m?.role ?? '').toLowerCase();
+            if (role !== 'user' && role !== 'system') continue;
+            logWithStatement(`gen_ai.${role}.message`, {
+              'gen_ai.system': 'gateway',
+              'gen_ai.message.role': role,
+              'gen_ai.message.content': extractMessageText(m),
+              ...evalTags,
+            });
+          }
+          logWithStatement('gen_ai.assistant.message', {
+            'gen_ai.system': 'gateway',
+            'gen_ai.message.role': 'assistant',
+            'gen_ai.message.content': text,
+            'gen_ai.message.finish_reason': finishReason,
+            ...evalTags,
           });
         },
         onError: async ({ error }) => {
