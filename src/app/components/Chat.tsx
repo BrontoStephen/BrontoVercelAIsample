@@ -4,6 +4,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useState, useRef, useEffect } from 'react';
+import { track } from '@vercel/analytics';
 
 export default function Chat() {
     // In this specific SDK version, useChat returns different helpers than standard V3
@@ -30,10 +31,18 @@ export default function Chat() {
         const val = input;
         setInput('');
 
+        track('chat_message_sent', {
+            messageLength: val.length,
+            conversationLength: messages.length,
+        });
+
         try {
             await sendMessage({ text: val });
         } catch (error) {
             console.error('Failed to send message:', error);
+            track('chat_error', {
+                error: error instanceof Error ? error.message : String(error),
+            });
         }
     };
 
